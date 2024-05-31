@@ -1,6 +1,6 @@
 package accounts
 
 type Accounts interface {
-	RegisterAccount(username, publicKeyArmor string) error
+	RegisterAccount(username, publicKey string) error
 	GetUserPublicKeyArmor(username string) (string, error)
 }

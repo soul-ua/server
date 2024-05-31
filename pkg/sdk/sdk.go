@@ -7,20 +7,30 @@ import (
 	"github.com/ProtonMail/gopenpgp/v2/crypto"
 	"github.com/soul-ua/server/pkg/protocol"
 	"io"
+	"log"
 	"net/http"
 )
+
+type Keychain interface {
+	SaveAccountPublicKey(username, privateKeyArmor string) error
+	GetAccountPublicKey(username string) (string, error)
+}
 
 type SDK struct {
 	serverURL string
 	info      protocol.ServerInfo
+	keychain  Keychain
 
 	username   string
 	privateKey *crypto.Key
 }
 
-func NewSDK(serverURL string, key *crypto.Key) (*SDK, error) {
+func NewSDK(serverURL string, keychain Keychain, username string, key *crypto.Key) (*SDK, error) {
 	s := &SDK{
-		serverURL:  serverURL,
+		serverURL: serverURL,
+		keychain:  keychain,
+
+		username:   username,
 		privateKey: key,
 	}
 
@@ -59,40 +69,58 @@ func (s *SDK) GetServerInfo() (protocol.ServerInfo, error) {
 	return info, nil
 }
 
-func (s *SDK) Request(method, path string, data []byte, responseV interface{}) error {
+func (s *SDK) Request(method, path string, data []byte) ([]byte, error) {
 	r, err := http.NewRequest(method, s.serverURL+path, bytes.NewReader(data))
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	pgpSignatureBase64, err := protocol.Sign(data, s.privateKey)
 	if err != nil {
-		return fmt.Errorf("failed to sign data: %w", err)
+		return nil, fmt.Errorf("failed to sign data: %w", err)
 	}
 
 	r.Header.Add("soul-username", s.username)
 	r.Header.Add("PGP-Signature", pgpSignatureBase64)
 
+	log.Println("req sent")
 	rsp, err := http.DefaultClient.Do(r)
 	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer rsp.Body.Close()
+	log.Println("req done")
 
 	body, err := io.ReadAll(rsp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
+	log.Println("req read done")
 
 	pgpSignatureBase64 = rsp.Header.Get("PGP-Signature")
 
 	if err = protocol.VerifySignArmor(body, pgpSignatureBase64, s.info.PublicKey); err != nil {
-		return fmt.Errorf("failed to verify response sign: %w", err)
+		return nil, fmt.Errorf("failed to verify response sign: %w", err)
 	}
 
-	if err = json.Unmarshal(body, responseV); err != nil {
-		return fmt.Errorf("failed to decode response: %w", err)
+	log.Println("req verify done")
+
+	return body, nil
+}
+
+// SendEnvelope just send envelope to the server
+func (s *SDK) SendEnvelope(envelop *protocol.Envelope) error {
+	envelop.From = s.username
+	packed, err := envelop.Pack()
+	if err != nil {
+		return fmt.Errorf("failed to pack envelope: %w", err)
 	}
 
+	rsp, err := s.Request("POST", "/send", packed)
+	if err != nil {
+		return fmt.Errorf("failed to send envelope: %w", err)
+	}
+
+	log.Println("Send envelope response:", string(rsp))
 	return nil
 }
