@@ -7,15 +7,19 @@ import (
 )
 
 type Envelope struct {
+	ID          string
 	From        string
 	To          string
+	Time        int64
 	PayloadType string // todo: type of Payload can be encrypted as part of Payload
 	Payload     []byte
 }
 
 type envelopeWire struct {
+	ID          string
 	From        string
 	To          string
+	Time        int64
 	PayloadType string
 	Payload     []byte
 }
@@ -25,8 +29,10 @@ func (e *Envelope) Pack() ([]byte, error) {
 	packed := bytes.Buffer{}
 	enc := gob.NewEncoder(&packed)
 	err := enc.Encode(envelopeWire{
+		ID:          e.ID,
 		From:        e.From,
 		To:          e.To,
+		Time:        e.Time,
 		PayloadType: e.PayloadType,
 		Payload:     e.Payload,
 	})
@@ -48,8 +54,10 @@ func UnpackEnvelope(packed []byte) (*Envelope, error) {
 	}
 
 	return &Envelope{
+		ID:          wire.ID,
 		From:        wire.From,
 		To:          wire.To,
+		Time:        wire.Time,
 		PayloadType: wire.PayloadType,
 		Payload:     wire.Payload,
 	}, nil

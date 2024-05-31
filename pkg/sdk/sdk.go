@@ -12,8 +12,8 @@ import (
 )
 
 type Keychain interface {
-	SaveAccountPublicKey(username, privateKeyArmor string) error
-	GetAccountPublicKey(username string) (string, error)
+	SavePublicKey(username, privateKeyArmor string) error
+	GetPublicKey(username string) (string, error)
 }
 
 type SDK struct {
@@ -23,6 +23,15 @@ type SDK struct {
 
 	username   string
 	privateKey *crypto.Key
+}
+
+func NewSDKArmor(serverURL string, keychain Keychain, username, privateKeyArmor string) (*SDK, error) {
+	key, err := crypto.NewKeyFromArmored(privateKeyArmor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load private key: %w", err)
+	}
+
+	return NewSDK(serverURL, keychain, username, key)
 }
 
 func NewSDK(serverURL string, keychain Keychain, username string, key *crypto.Key) (*SDK, error) {

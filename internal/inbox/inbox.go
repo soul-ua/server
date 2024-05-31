@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"go.etcd.io/bbolt"
+	"time"
 
 	"github.com/soul-ua/server/pkg/protocol"
 )
@@ -36,6 +37,9 @@ func (i *Inbox) Append(envelope *protocol.Envelope) (uuid.UUID, error) {
 	if err != nil {
 		panic(err)
 	}
+
+	envelope.ID = envelopeID.String()
+	envelope.Time = time.Now().Unix()
 
 	if envelope.To != i.username {
 		return envelopeID, fmt.Errorf("envelope is not addressed to this inbox")
