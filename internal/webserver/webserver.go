@@ -13,7 +13,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 )
 
 type Webserver struct {
@@ -25,17 +24,17 @@ type Webserver struct {
 }
 
 func NewWebserver(accountsUC accounts.Accounts) (*Webserver, error) {
-	privateKey, err := os.ReadFile("./.keys/server.prv")
+	privateKey, err := accountsUC.GetUserPrivateKeyArmor("server")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key: %w", err)
 	}
 
-	publicKey, err := os.ReadFile("./.keys/server.pub")
+	publicKey, err := accountsUC.GetUserPublicKeyArmor("server")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read public key: %w", err)
 	}
 
-	privateKeyObj, err := crypto.NewKeyFromArmored(string(privateKey))
+	privateKeyObj, err := crypto.NewKeyFromArmored(privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse private key: %w", err)
 	}
@@ -43,8 +42,8 @@ func NewWebserver(accountsUC accounts.Accounts) (*Webserver, error) {
 	return &Webserver{
 		accounts: accountsUC,
 
-		publicKey:          string(publicKey),
-		privateKey:         string(privateKey),
+		publicKey:          publicKey,
+		privateKey:         privateKey,
 		unlockedPrivateKey: privateKeyObj,
 	}, nil
 }
